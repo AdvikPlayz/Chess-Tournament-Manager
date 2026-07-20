@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Tournament Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alata&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <nav class="nav" aria-label="Tournament navigation">
+      <a class="brand" href="index.html" aria-label="Chess Tournament Manager home">
+        <span class="brand-mark">TM</span>
+        <span>Chess Tournament Manager</span>
+      </a>
+      <div class="nav-actions">
+        <button type="button" class="ghost" data-action="toggle-projector">Projector</button>
+        <button type="button" class="ghost" data-action="export">Export</button>
+        <label class="file-button">
+          Import
+          <input type="file" id="import-file" accept="application/json,.json">
+        </label>
+      </div>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Tournament control room</p>
+        <h1 id="page-title">Run a clean chess tournament from one screen.</h1>
+        <p>Register players, create Swiss-style pairings, enter results, and keep a live leaderboard saved locally in each person&apos;s browser.</p>
+      </div>
+      <div class="hero-board" aria-hidden="true">
+        <div class="board-grid"></div>
+        <div class="board-card">
+          <strong id="hero-round">Round 1</strong>
+          <span id="hero-count">0 players registered</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="status-grid" aria-label="Tournament summary">
+      <article class="status-card">
+        <span>Players</span>
+        <strong id="stat-players">0</strong>
+      </article>
+      <article class="status-card">
+        <span>Current Round</span>
+        <strong id="stat-round">1</strong>
+      </article>
+      <article class="status-card">
+        <span>Completed Games</span>
+        <strong id="stat-games">0</strong>
+      </article>
+      <article class="status-card">
+        <span>Leader</span>
+        <strong id="stat-leader">None</strong>
+      </article>
+    </section>
+
+    <section class="tournament-layout" aria-label="Tournament workspace">
+      <aside class="panel setup-panel" aria-labelledby="setup-title">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Local controls</p>
+            <h2 id="setup-title">Setup</h2>
+          </div>
+        </div>
+
+        <form id="settings-form" class="form-stack">
+          <label>
+            Tournament Name
+            <input type="text" id="tournament-name" autocomplete="off">
+          </label>
+          <label>
+            Max Rounds
+            <input type="number" id="max-rounds" min="1" max="12">
+          </label>
+          <button type="submit">Save Settings</button>
+        </form>
+
+        <hr>
+
+        <form id="player-form" class="form-stack">
+          <label>
+            Player Name
+            <input type="text" id="player-name" placeholder="Student name" autocomplete="off">
+          </label>
+          <label>
+            Rating or Seed
+            <input type="number" id="player-rating" min="0" placeholder="Optional">
+          </label>
+          <button type="submit">Add Player</button>
+        </form>
+
+        <div class="admin-actions">
+          <button type="button" data-action="pair-round">Create Pairings</button>
+          <button type="button" class="ghost danger" data-action="reset-event">Reset Tournament</button>
+        </div>
+        <p class="note" id="app-message" role="status" aria-live="polite"></p>
+      </aside>
+
+      <div class="center-stack">
+        <section class="panel" aria-labelledby="players-title">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Registration</p>
+              <h2 id="players-title">Players</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Rating</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="players-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="pairings-title">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Round desk</p>
+              <h2 id="pairings-title">Pairings</h2>
+            </div>
+            <span class="round-pill" id="pairing-round">Round 1</span>
+          </div>
+          <div id="pairings-list" class="pairings-list"></div>
+        </section>
+      </div>
+
+      <aside class="right-stack" aria-label="Leaderboard and public hosting">
+        <section class="panel leaderboard-panel" aria-labelledby="leaderboard-title">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Live standings</p>
+              <h2 id="leaderboard-title">Leaderboard</h2>
+            </div>
+          </div>
+          <ol id="leaderboard-list" class="leaderboard"></ol>
+        </section>
+
+        <section class="panel hosting-panel" aria-labelledby="hosting-title">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Optional public hosting</p>
+              <h2 id="hosting-title">Share Online</h2>
+            </div>
+          </div>
+          <p class="note">By default, this tournament only saves in this browser. Public hosting is optional and needs a free Firebase Realtime Database project.</p>
+          <details class="setup-guide">
+            <summary>Setup instructions</summary>
+            <ol>
+              <li>Create a Firebase project at firebase.google.com.</li>
+              <li>Create a Realtime Database in test mode, then replace the rules with the rules below.</li>
+              <li>Open project settings and copy the web app config values.</li>
+              <li>Paste those values into the setup fields on this page.</li>
+              <li>Click Save Hosting Setup, then Publish Public.</li>
+            </ol>
+            <pre><code>{
+  "rules": {
+    "publicTournaments": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</code></pre>
+          </details>
+          <form id="hosting-setup-form" class="form-stack hosting-setup">
+            <label>
+              API Key
+              <input type="text" id="firebase-api-key" autocomplete="off">
+            </label>
+            <label>
+              Auth Domain
+              <input type="text" id="firebase-auth-domain" placeholder="project-id.firebaseapp.com" autocomplete="off">
+            </label>
+            <label>
+              Database URL
+              <input type="url" id="firebase-database-url" placeholder="https://project-id-default-rtdb.firebaseio.com" autocomplete="off">
+            </label>
+            <label>
+              Project ID
+              <input type="text" id="firebase-project-id" autocomplete="off">
+            </label>
+            <label>
+              App ID
+              <input type="text" id="firebase-app-id" autocomplete="off">
+            </label>
+            <div class="admin-actions">
+              <button type="submit">Save Hosting Setup</button>
+              <button type="button" class="ghost" data-action="clear-hosting-setup">Clear Setup</button>
+            </div>
+          </form>
+          <div class="admin-actions">
+            <button type="button" class="ghost" data-action="load-public">Load Public</button>
+            <button type="button" data-action="publish-public">Publish Public</button>
+            <button type="button" class="ghost" data-action="copy-public-link">Copy Link</button>
+            <button type="button" class="ghost" data-action="open-public-link">Open Viewer</button>
+            <button type="button" class="ghost danger" data-action="unpublish-public">Unpublish</button>
+            <button type="button" class="ghost" data-action="clear-public-link">Clear Link</button>
+          </div>
+          <label class="share-field">
+            Viewer Link
+            <input type="text" id="public-link" readonly>
+          </label>
+        </section>
+      </aside>
+    </section>
+
+  </main>
+
+  <template id="empty-row-template">
+    <tr>
+      <td colspan="5" class="empty-cell">No players registered yet.</td>
+    </tr>
+  </template>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
